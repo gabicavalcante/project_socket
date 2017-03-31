@@ -24,8 +24,8 @@ class Server:
         server's constructor
         :param port: port to connection
         """
-        self.host = '127.0.0.1'  # host
-        self.port = 5051  # port
+        self.host = ''  # host
+        self.port = 5050  # port
         self.socket = None
         self.size = 1024
         self.backlog = 5

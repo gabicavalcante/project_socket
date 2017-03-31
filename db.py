@@ -13,9 +13,3 @@ log_collection = db.log
 log_collection.ensure_index([("timestamp", ASCENDING)])
 
 print log_collection.find_one()
-
-
-def log(msg):
-    """Log `msg` to MongoDB log"""
-    entry = {'timestamp': datetime.datetime.utcnow(), 'msg': msg}
-    log_collection.insert(entry)

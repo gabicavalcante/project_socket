@@ -1,4 +1,3 @@
-
 MONGO = {
     'db' : 'mongolog',
     'collection' : 'log',
