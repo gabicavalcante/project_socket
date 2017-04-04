@@ -18,6 +18,8 @@ import socket
 import sys
 import threading
 
+import tokenlib
+
 import reboot
 from db import users_collection
 
@@ -112,7 +114,6 @@ class ClientThread(threading.Thread):
                 # get the first word in the request
                 command = data
                 logging.debug("command: %s " % command)
-                # logging.debug("content: %s " % data)
 
                 if 'HELO' in command:
                     response_content = 'HELO {}'.format(self.address)
@@ -122,10 +123,14 @@ class ClientThread(threading.Thread):
 
                     user = users_collection.find_one({"email": email, "password": password})
 
-                    token = generate_token(str(user['_id']))
-                    save_token(token)
+                    token = str(generate_token(str(user['_id'])))
+                    print token
+                    print type(token)
+                    print tokenlib.parse_token(token, secret="I_LIKE_UNICORNS")
+                    if save_token(token):
+                        logging.info("token saved")
 
-                    response_content = 'TOKEN {}'.format('123')
+                    response_content = 'TOKEN {}'.format(token)
                 elif 'VALIDATE_TOKEN' in command:
                     token = command.split('TOKEN ')[1]
                     valid = validate_token(token)

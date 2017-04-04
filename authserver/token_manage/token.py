@@ -9,32 +9,40 @@ sys.path.append('../')
 from db import tokens_collection
 
 
-def generate_token(data):
-    if tokens_collection.find({"user_id": data}).count() == 0:
+def generate_token(user_id):
+    if tokens_collection.find({"user_id": user_id}).count() == 0:
         logging.info('creating token...')
-        token = tokenlib.make_token({"user_id": data}, secret="I_LIKE_UNICORNS")
+        token = tokenlib.make_token({"user_id": user_id}, secret="I_LIKE_UNICORNS")
         return token
     else:
         logging.info("token exist...")
-        token = tokens_collection.find_one({"user_id": data})
-        return token['key']
+        data_token = str(tokens_collection.find_one({"user_id": user_id}))
+        token = data_token['key']
+        if validate_token(token):
+            return token
+        else:
+            token = tokenlib.make_token({"user_id": user_id}, secret="I_LIKE_UNICORNS")
+            return token
 
 
 def save_token(token):
+    id = None
     data = tokenlib.parse_token(token, secret="I_LIKE_UNICORNS")
+    print data
     data_token = {
         "key": token,
         "expires": data['expires'],
         "user_id": data['user_id'],
-        # "issued_at": str(datetime.now())
+        "salt": data['salt']
     }
     if tokens_collection.find({"user_id": data['user_id']}).count() == 0:
-        tokens_collection.insert_one(data_token).inserted_id
+        id = tokens_collection.insert_one(data_token).inserted_id
+    return id
 
 
 def validate_token(token):
     try:
         tokenlib.parse_token(token, secret="I_LIKE_UNICORNS", now=datetime.now())
-        return True
     except ValueError:
         return False
+    return True
