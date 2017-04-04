@@ -1,0 +1,4 @@
+enum==0.4.6
+log4mongo==1.6.0
+pymongo==3.4.0
+wheel==0.24.0

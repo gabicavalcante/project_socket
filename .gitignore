@@ -1,4 +1,5 @@
-settings.py
+./authserver/logsettings.py
+./authserver/dbsettings.py
 *.pyc
 
 ### Git ###
