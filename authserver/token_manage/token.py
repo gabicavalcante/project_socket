@@ -1,7 +1,7 @@
 import logging
 
 import tokenlib
-from datetime import datetime
+import time
 
 import sys
 
@@ -16,11 +16,14 @@ def generate_token(user_id):
         return token
     else:
         logging.info("token exist...")
-        data_token = str(tokens_collection.find_one({"user_id": user_id}))
-        token = data_token['key']
+        data_token = tokens_collection.find_one({"user_id": user_id})
+        token = str(data_token['key'])
         if validate_token(token):
             return token
         else:
+            logging.info('token expired...')
+            logging.info('creating a new...')
+            tokens_collection.remove({'_id': data_token['_id']})
             token = tokenlib.make_token({"user_id": user_id}, secret="I_LIKE_UNICORNS")
             return token
 
@@ -28,7 +31,6 @@ def generate_token(user_id):
 def save_token(token):
     id = None
     data = tokenlib.parse_token(token, secret="I_LIKE_UNICORNS")
-    print data
     data_token = {
         "key": token,
         "expires": data['expires'],
@@ -42,7 +44,8 @@ def save_token(token):
 
 def validate_token(token):
     try:
-        tokenlib.parse_token(token, secret="I_LIKE_UNICORNS", now=datetime.now())
-    except ValueError:
+        tokenlib.parse_token(token, secret="I_LIKE_UNICORNS")
+    except Exception, e:
+        logging.error('Failed parse token: ' + str(e))
         return False
     return True

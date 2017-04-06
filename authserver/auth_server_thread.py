@@ -10,6 +10,8 @@ import logging.config
 
 from token_manage.token import generate_token, save_token, validate_token
 from logsettings import LOG_SETTINGS
+from utils.status import Status
+
 logging.config.dictConfig(LOG_SETTINGS)
 
 import select
@@ -17,8 +19,6 @@ import signal
 import socket
 import sys
 import threading
-
-import tokenlib
 
 import reboot
 from db import users_collection
@@ -116,27 +116,29 @@ class ClientThread(threading.Thread):
                 logging.debug("command: %s " % command)
 
                 if 'HELO' in command:
-                    response_content = 'HELO {}'.format(self.address)
+                    response_content = '200 HELO {}'.format(self.address)
                 elif 'AUTH' in command:
                     email = command.split('EMAIL:')[1].split(' PASSWORD:')[0]
                     password = command.split('PASSWORD:')[1]
 
                     user = users_collection.find_one({"email": email, "password": password})
+                    if user:
+                        token = str(generate_token(str(user['_id'])))
+                        if save_token(token):
+                            logging.info("token saved")
 
-                    token = str(generate_token(str(user['_id'])))
-                    print token
-                    print type(token)
-                    print tokenlib.parse_token(token, secret="I_LIKE_UNICORNS")
-                    if save_token(token):
-                        logging.info("token saved")
-
-                    response_content = 'TOKEN {}'.format(token)
+                        response_content = '200 TOKEN {}'.format(token)
+                    else:
+                        logging.error('Unauthorized')
+                        response_content = '401 ' + 'Unauthorized'
                 elif 'VALIDATE_TOKEN' in command:
-                    token = command.split('TOKEN ')[1]
+                    token = command.split('VALIDATE_TOKEN ')[1]
                     valid = validate_token(token)
                     if valid:
+                        logging.debug('token valid...')
                         response_content = 'VALID'
                     else:
+                        logging.debug('token invalid...')
                         response_content = 'NOT VALID'
                 else:
                     response_content = 'TCHAU'

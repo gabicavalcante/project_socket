@@ -8,7 +8,7 @@ client = MongoClient(
 db = client.socket_database
 users_collection = db.users
 tokens_collection = db.tokens
-
+project_collection = db.projects
 
 def create_users():
     user01 = {
@@ -34,3 +34,27 @@ def create_users():
     id03 = users_collection.insert_one(user03).inserted_id
 
     print 'id01: {} | id02: {} | id03: {}'.format(id01, id02, id03)
+
+
+def create_projects():
+    project01 = {
+        'name': 'project01',
+        'description': 'TEST'
+    }
+
+    project02 = {
+        'name': 'project02',
+        'description': 'TEST'
+    }
+
+    project03 = {
+        'name': 'project03',
+        'description': 'TEST'
+    }
+
+    id01 = project_collection.insert_one(project01).inserted_id
+    id02 = project_collection.insert_one(project02).inserted_id
+    id03 = project_collection.insert_one(project03).inserted_id
+
+    print 'id01: {} | id02: {} | id03: {}'.format(id01, id02, id03)
+
