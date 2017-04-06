@@ -1,83 +1,92 @@
 #!/usr/bin/python
 
+"""
+Client to test the auth_server_thread.py
+Ctr+c will close the client.
+"""
+
 import socket  # connection support
 
 # create a socket object
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-host = '127.0.0.1'
-port = 5151
-token = ''
+HOST = '127.0.0.1'
+PORT = 5151
+BUFFER_SIZE = 1024
 
-email = 'raivitor@gmail.com'
+token = ''
+email = 'gabicavalcantesilva@gmail.com'
 password = '12345'
 
-print 'port: {} host: {}'.format(port, host)
-
 # connection to hostname on the port.
-s.connect((host, port))
+s.connect((HOST, PORT))
 
 print 'connect authentication...'
 
-response = raw_input('SAY HELLO (y/n)')
+response = raw_input('SAY HELLO (y/n): ')
 if response:
-    #### send hello
     s.sendall(b'HELO')
     print 'saying hello...'
-    data = s.recv(1024)  # receive the client data
 
+    data = s.recv(BUFFER_SIZE)  # receive the client data
     print 'receiving...'
-    print 'Received >> \n-------\n' + data + '\n-------\n'
+    print 'Received >> \n' + data + '\n'
 
-response = raw_input('AUTHENTICATION (y/n)')
+response = raw_input('AUTHENTICATION (y/n): ')
 if response:
-    #### authentication
     s.sendall(b'AUTH EMAIL:{} PASSWORD:{}'.format(email, password))
     print 'asking for authentication...'
-    data = s.recv(1024)  # receive the client data
 
+    data = s.recv(BUFFER_SIZE)  # receive the client data
     print 'receiving...'
-    print 'Received >> \n-------\n' + data + '\n-------'
-    token = data.split('TOKEN ')[1]
+    print 'Received >> \n' + data + '\n'
+    if not 'Unauthorized' in data:
+        token = data.split('TOKEN ')[1]
 
-response = raw_input('BYE (y/n)')
+response = raw_input('BYE (y/n): ')
 if response:
-    #### bye
     s.sendall(b'BYE')
     print 'saying bye...'
-    data = s.recv(1024)  # receive the client data
 
+    data = s.recv(BUFFER_SIZE)  # receive the client data
     print 'receiving...'
-    print 'Received >> \n-------\n' + data + '\n-------'
+    print 'Received >> \n' + data + '\n'
 
 s.close()
 
-######-----------------
+#################################################################
 
-host = '127.0.0.1'
-port = 6060
+
+PORT = 6161
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect((host, port))
+s.connect((HOST, PORT))
 
 print 'connect proxy...'
 
-response = raw_input('SAY HELLO (y/n)')
+response = raw_input('SAY HELLO (y/n): ')
 if response:
-    #### send hello
     s.sendall(b'HELO')
     print 'saying hello...'
-    data = s.recv(1024)  # receive the client data
 
+    data = s.recv(BUFFER_SIZE)  # receive the client data
     print 'receiving...'
-    print 'Received >> \n-------\n' + data + '\n-------\n'
+    print 'Received >> \n' + data + '\n'
 
-response = raw_input('VALIDATION TOKEN (y/n)')
+response = raw_input('SELECT PROJECTS (y/n): ')
 if response:
-    #### ask for validation token_manage
+    s.sendall(b'SELECT_PROJECTS TOKEN {}'.format(token))
+    data = s.recv(BUFFER_SIZE)  # receive the client data
+    print 'receiving...'
+    print 'Received >> \n' + data + '\n'
+
+"""
+response = raw_input('VALIDATION TOKEN (y/n): ')
+if response:
     s.sendall(b'TOKEN {}'.format(token))
     print 'sending token_manage...'
-    data = s.recv(1024)  # receive the client data
 
+    data = s.recv(BUFFER_SIZE)  # receive the client data
     print 'receiving...'
-    print 'Received >> \n-------\n' + data + '\n-------\n'
+    print 'Received >> \n' + data + '\n'
+"""

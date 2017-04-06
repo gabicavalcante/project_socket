@@ -1,155 +1,156 @@
-#!/usr/bin/python
-
+#!/usr/bin/env python
+"""
+select: This module supports asynchronous I/O on multiple file descriptors
+        (so, the server can handle with multiple clients at once)
+        interface > select(input,output,exception[,timeout])
+        the returns will be a tuple of three lists: input, output and exception events.
+"""
 import logging
 import logging.config
-import os
-import signal  # catch the ctrl + c
-import socket  # connection support
+
+import select
+import socket
 import sys
-import time  # access the current time
+import threading
 
-sys.path.append('../')
-from utils.status import Status
+import signal
+
 from logsettings import LOG_SETTINGS
-
 logging.config.dictConfig(LOG_SETTINGS)
 
+sys.path.append('../')
+from authserver import db
 
 class Server:
     def __init__(self):
-        """
-        server's constructor
-        :param port: port to connection
-        """
-        self.host = '127.0.0.1'  # host
-        self.port = 6060  # port
-        self.socket = None
+        self.host = '127.0.0.1'
+        self.port = 6161
         self.size = 1024
         self.backlog = 5
-        # method the reboot port if it's used
-        # for now, it's not necessary
-        # reboot(self.port)
+        self.server = None
+        self.threads = []
+        # reboot.reboot(5151)
 
     def create_socket(self):
-        # factory socket
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # create a new socket object
-        # flag tells the kernel to reuse a local socket in TIME_WAIT state,
-        # without waiting for its natural timeout to expire.
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-    def start_server(self):
-        """
-        Method to start the server
-        """
         try:
-            self.create_socket()
-            logging.debug("Serving PROXY on port %s | host %s " % (self.port, self.host))
-            self.socket.bind((self.host, self.port))  # bind the socket to a local address
-            self.socket.listen(self.backlog)  # maximum number of connections
-        except Exception as exc:
-            logging.error("Exception %s " % exc)
-            self.shutdown()
+            print "Connecting server..."
+            # create a socket object
+            self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            # bind the socket to the host name and port number
+            self.server.bind((self.host, self.port))
+            # keep a backlog of five connections.
+            self.server.listen(5)
+        except socket.error, (value, message):
+            if self.server:
+                self.server.close()
+            print "Could not open the socket: " + message
             sys.exit(1)
 
-        logging.debug("Server successfully connected port %s | host %s " % (self.port, self.host))
-        logging.info("Press Ctrl + C to stop")
-        self._doing_connections()
+    def run(self):
+        self.create_socket()
+        input = [self.server, sys.stdin]
+        run = 1
+        while run:
+            input_ready, output_ready, except_ready = select.select(input, [], [])
+            for i in input_ready:
+                if i == self.server:
+                    # handle the server socket
+                    # accepts an incoming connection
+                    c = Client(self.server.accept())
+                    c.start()
+                    self.threads.append(c)
 
-    def shutdown(self):
+                elif i == sys.stdin:
+                    # handle standard input
+                    junk = sys.stdin.readline()
+                    run = 0
+
+        # close all threads created
+        self.server.close()
+        for c in self.threads:
+            c.join()
+
+
+class Client(threading.Thread):
+    """
+    Client is a subclasses of Thread class (thread module).
+    As a subclass of Thread, we can use the instance as a thread.
+    For this, we need call the Thread initialization method:
+        threading.Thread.__init__(self)
+    """
+
+    def __init__(self, (client, address)):
+        print "Creating a new client | client {0}, address {1}".format(client, address)
+        threading.Thread.__init__(self)
+        # new socket object to communicate with the client
+        self.client = client
+        # address of the client
+        self.address = address
+        self.size = 1024
+
+    def run(self):
         """
-        Method to shutdown the server
+        This method overrides the run method of the Thread class.
+        It will be called automatically when the start() method is called.
+        This loop will run until the client decides to close it.
         """
-        try:
-            logging.info("Shutting down the server")
-            self.socket.shutdown(socket.SHUT_RDWR)
-        except Exception as exc:
-            logging.error("Problems to shutdown the server, I'm sorry. Check if it was already closed. %s " % exc)
-
-    def _doing_connections(self):
-        """
-        Method to make the connection
-        """
-
-        logging.info("Waiting Request...")
-
-        # socket to client and clients address .accept - accept connection
-        client_connection, client_address = self.socket.accept()
-
         while True:
-            # accept(): Return a new socket representing the connection, and the address of the client
+            # receive data on the connection
+            data = self.client.recv(self.size)
+            if data:
+                # get the first word in the request
+                command = data
+                logging.debug("command: %s " % command)
+                response_content = ''
+                if 'HELO' in command:
+                    response_content = 'HELO {}'.format(self.address)
+                elif 'VALIDATION TOKEN' in command:
+                    token = command.split('TOKEN ')[1]
 
-            logging.debug("connection from: {}' ".format(client_address))
+                    s01 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    # connection to hostname on the port.
+                    s01.connect(('127.0.0.1', 5151))
+                    s01.sendall(b'VALIDATE_TOKEN {}'.format(token))
+                    response = s01.recv(1024)
 
-            data = client_connection.recv(self.size)  # receive the client data
-            request_string = bytes.decode(data)  # decode the request to string
+                    if 'NOT VALID' in response:
+                        logging.debug('token invalid...')
+                        response_content = 'NOT PERMIT'
+                    else:
+                        logging.debug('token valid...')
+                        response_content = 'PERMIT'
+                    s01.close()
+                elif 'SELECT_PROJECTS' in command:
+                    token = command.split('TOKEN ')[1]
 
-            # get the first word in the request
-            os.environ["REQUEST_METHOD"] = request_string.split(' ')[0]
-            logging.debug("method: %s " % os.environ["REQUEST_METHOD"])
-            logging.debug("content: %s " % request_string)
+                    s01 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    # connection to hostname on the port.
+                    s01.connect(('127.0.0.1', 5151))
+                    s01.sendall(b'VALIDATE_TOKEN {}'.format(token))
+                    response = s01.recv(1024)
+                    s01.close()
 
-            response_content = ''
+                    if 'NOT VALID' in response:
+                        logging.debug('token invalid...')
+                        response_content = 'NOT PERMIT'
+                    else:
+                        logging.debug('token valid...')
+                        projects = str(list(db.project_collection.find()))
+                        response_content = projects
 
-            if os.environ["REQUEST_METHOD"] == 'HELO':
-                response_content = 'HELO {}'.format(client_address)
-            elif os.environ["REQUEST_METHOD"] == 'TOKEN':
-                token = request_string.split('TOKEN ')[1]
+                elif 'BYE' in command:
+                    break
 
-                s01 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                # connection to hostname on the port.
-                s01.connect(('127.0.0.1', 5050))
-                s01.sendall(b'VALIDATE_TOKEN TOKEN {}'.format(token))
-                response = s01.recv(1024)
-
-                if 'VALID' in response:
-                    response_content = 'PERMIT'
-                else:
-                    response_content = 'NOT PERMIT'
-                s01.close()
-            elif os.environ["REQUEST_METHOD"] == 'BYE':
+                # sends data to the client
+                status = self.client.send(response_content)
+                # the return of send() are the byte sent
+                # so, we can check if the data was sent successfully
+                if not status:
+                    print "data wasn't sent successfully"
+            else:
+                print "Closing client | client {0}, address {1}".format(self.client, self.address)
+                self.client.close()
                 break
-
-            response_headers = self._build_header(Status.CODE200)
-            server_response = response_headers.encode() + response_content
-            client_connection.sendall(server_response)
-            logging.info("closing connection with client...")
-
-        client_connection.close()
-
-    @staticmethod
-    def _build_header(param):
-        """
-        Method to build a response header
-        :param status: 200 if the page was found or 400 if not
-        :return: a response header
-        """
-        header = ""
-        if param == Status.CODE200:
-            header = 'HTTP/1.0 200 OK\n'
-        elif param == Status.CODE404:
-            header = 'HTTP/1.1 404 Not Found\n'
-
-        current_time = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
-        header += 'Date: ' + current_time + '\n'
-        header += 'Server: Unice\n'
-        header += 'MIME-version: 1.0\n'
-        header += 'Content-type: text/html\n'
-
-        return header
-
-    @staticmethod
-    def _args_handler(args):
-        """
-        Method to split the argument and get the parameters
-        to build the file name that will be send as server's answer
-        :param args: url arguments
-        :return: file name
-        """
-        list_args = args.split('&')
-        file_name = ""
-        for param in list_args:
-            file_name += param.split('=')[1]
-        return file_name + ".html"
 
 
 def signal_handler(sig, frame):
@@ -160,14 +161,12 @@ def signal_handler(sig, frame):
     :param frame: current stack frame
     source: https://docs.python.org/2/library/signal.html
     """
-    logging.info('stopping the server...')
+    print('stopping the program...')
     sys.exit(0)
 
 
 signal.signal(signal.SIGINT, signal_handler)
 
-# method main
-if __name__ == '__main__':
-    logging.info('starting web server...')
-    server = Server()
-    server.start_server()
+if __name__ == "__main__":
+    s = Server()
+    s.run()
