@@ -14,6 +14,7 @@ Após estar autenticado, ele tentará acessar um SP, que estará protegido por u
 ## Protocol
  
 Cliente - Servidor de Autenticação
+```
 C: HELO  
 S: 250 HELO ('127.0.0.1', 59893)
 C: AUTH EMAIL:gabicavalcantesilva@gmail.com PASSWORD:12345
@@ -25,4 +26,5 @@ C: HELO
 S: 250 HELO ('127.0.0.1', 59895)
 C: SELECT_PROJECTS TOKEN eyJzYWx0IjogIjM2MTU1OS
 S: {u'_id': ObjectId('58e59a1f3a140e226e1eb580'), u'name': u'project01', u'description': u'TEST'}, {u'_id': ObjectId('58e59a1f3a140e226e1eb581'), u'name': u'project02', u'description': u'TEST'}, {u'_id': ObjectId('58e59a1f3a140e226e1eb582'), u'name': u'project03', u'description': u'TEST'}
-C: BYE  
+C: BYE  `
+```
